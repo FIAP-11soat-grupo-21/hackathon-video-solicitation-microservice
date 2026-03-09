@@ -1,0 +1,43 @@
+services:
+  localstack: 
+    image: localstack/localstack:3.0
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    environment:
+      - SERVICES=s3,sns,sqs
+      - AWS_DEFAULT_REGION=us-east-2
+    volumes:
+      - ./.docker/localstack/bootstrap.sh:/etc/localstack/init/ready.d/01-bootstrap.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - backbone
+    healthcheck:
+      test: ["CMD", "awslocal", "sqs", "list-queues"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
+  service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      localstack:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - sqlite_data:/app/data
+    networks:
+      - backbone
+
+volumes:
+  sqlite_data:
+
+networks:
+  backbone:
+    driver: bridge
