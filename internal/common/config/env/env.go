@@ -85,7 +85,7 @@ func (c *Config) Load() {
 	c.AWS.SQS.VideoProcessingErrorQueueURL = getEnv("SQS_VIDEO_PROCESSING_ERROR_QUEUE_URL", "")
 
 	// SNS
-	c.AWS.SNS.AllChunkProcessedEventARN = getEnv("ALL_CHUCK_PROCESSED_EVENT_ARN", "")
+	c.AWS.SNS.AllChunkProcessedEventARN = getEnv("ALL_CHUNK_PROCESSED_EVENT_ARN", "")
 	c.AWS.SNS.VideoProcessedErrorEventARN = getEnv("VIDEO_PROCESSED_ERROR_EVENT_ARN", "")
 }
 

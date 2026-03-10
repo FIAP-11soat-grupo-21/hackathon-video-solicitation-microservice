@@ -6,7 +6,7 @@ echo "🚀 Starting LocalStack bootstrap..."
 # =====================
 # S3 Buckets
 # =====================
-BUCKET_NAME=fiapx-videos
+BUCKET_NAME=video-solicitation-bucket
 
 echo "▶ Creating S3 bucket '$BUCKET_NAME'..."
 
@@ -18,17 +18,17 @@ echo "✅ S3 bucket '$BUCKET_NAME' created"
 # =====================
 # SNS TOPICS
 # =====================
-ALL_CHUCK_PROCESSED_EVENT=all-chunk-processed
+ALL_CHUNK_PROCESSED_EVENT=all-chunk-processed
 VIDEO_PROCESSED_ERROR_EVENT=video-processing-error
 
 echo "▶ Creating SNS topics..."
 
-ALL_CHUCK_PROCESSED_EVENT_ARN=$(awslocal sns create-topic \
-  --name "$ALL_CHUCK_PROCESSED_EVENT" \
+ALL_CHUNK_PROCESSED_EVENT_ARN=$(awslocal sns create-topic \
+  --name "$ALL_CHUNK_PROCESSED_EVENT" \
   --query 'TopicArn' \
   --output text)
 
-echo "✅ SNS topic '$ALL_CHUCK_PROCESSED_EVENT' created"
+echo "✅ SNS topic '$ALL_CHUNK_PROCESSED_EVENT' created"
 
 VIDEO_PROCESSED_ERROR_EVENT_ARN=$(awslocal sns create-topic \
   --name "$VIDEO_PROCESSED_ERROR_EVENT" \
@@ -94,7 +94,7 @@ echo "✅ SQS queue ARNs retrieved"
 echo "▶ Subscribing SQS queues to SNS topics..."
 
 awslocal sns subscribe \
-  --topic-arn "$ALL_CHUCK_PROCESSED_EVENT_ARN" \
+  --topic-arn "$ALL_CHUNK_PROCESSED_EVENT_ARN" \
   --protocol sqs \
   --notification-endpoint "$UPDATE_VIDEO_CHUNK_STATUS_QUEUE_ARN"
 
