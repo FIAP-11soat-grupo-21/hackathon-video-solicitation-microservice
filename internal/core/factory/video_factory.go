@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"video_solicitation_microservice/internal/common/config/constant"
+	"video_solicitation_microservice/internal/common/config/env"
 	"video_solicitation_microservice/internal/common/pkg/identity"
 	"video_solicitation_microservice/internal/core/domain/entity"
 	"video_solicitation_microservice/internal/core/domain/value_object"
@@ -13,6 +13,7 @@ import (
 
 // NewVideo creates the Aggregate Root with Metadata, FileLocation and calculated Chunks.
 func NewVideo(input dto.CreateVideoInput) *entity.Video {
+	cfg := env.LoadConfig()
 	id := identity.NewUUIDV7()
 	now := time.Now()
 
@@ -30,7 +31,7 @@ func NewVideo(input dto.CreateVideoInput) *entity.Video {
 		},
 		Status: value_object.VideoStatusPending,
 		FileLocation: entity.FileLocation{
-			BucketName:       constant.S3BucketName,
+			BucketName:       cfg.AWS.S3.BucketName,
 			VideoChunkFolder: fmt.Sprintf("videos/%s/chunks/", id),
 			ImageFolder:      fmt.Sprintf("videos/%s/images/", id),
 		},

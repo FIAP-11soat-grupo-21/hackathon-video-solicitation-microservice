@@ -12,6 +12,19 @@ echo "▶ Creating S3 bucket '$BUCKET_NAME'..."
 
 awslocal s3 mb s3://$BUCKET_NAME
 
+awslocal s3api put-bucket-cors \
+    --bucket $BUCKET_NAME \
+    --cors-configuration '{
+  "CORSRules": [
+    {
+      "AllowedHeaders": ["*"],
+      "AllowedMethods": ["PUT", "POST", "GET", "HEAD"],
+      "AllowedOrigins": ["*"],
+      "ExposeHeaders": ["ETag"]
+    }
+  ]
+}'
+
 echo "✅ S3 bucket '$BUCKET_NAME' created"
 
 
