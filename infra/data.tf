@@ -78,3 +78,30 @@ data "terraform_remote_state" "app_registry" {
     region = "us-east-2"
   }
 }
+
+data "terraform_remote_state" "s3" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/S3/Chunks/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "sqs" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/SQS/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "sns" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/SNS/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
