@@ -28,6 +28,8 @@ services:
     depends_on:
       localstack:
         condition: service_healthy
+      dynamodb:
+        condition: service_started
     env_file:
       - .env
     volumes:
@@ -35,8 +37,34 @@ services:
     networks:
       - backbone
 
+  dynamodb:
+    image: amazon/dynamodb-local
+    container_name: dynamodb
+    ports:
+      - "8000:8000"
+    volumes:
+      - dynamodb:/data
+    command: -jar DynamoDBLocal.jar -sharedDb
+    networks:
+      - backbone
+
+  # dynamodb-init:
+  #   image: amazon/aws-cli
+  #   depends_on:
+  #     - dynamodb
+  #   # entrypoint: ["/bin/sh", "/app/scripts/create_dynamodb_table.sh"]
+  #   environment:
+  #     - AWS_ACCESS_KEY_ID=dummy
+  #     - AWS_SECRET_ACCESS_KEY=dummy
+  #     - AWS_DEFAULT_REGION=us-east-2
+  #   volumes:
+  #     - ./scripts:/app/scripts
+  #   networks:
+  #     - backbone
+
 volumes:
   sqlite_data:
+  dynamodb:
 
 networks:
   backbone:
