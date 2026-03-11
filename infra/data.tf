@@ -88,20 +88,38 @@ data "terraform_remote_state" "s3" {
   }
 }
 
-data "terraform_remote_state" "sqs" {
+data "terraform_remote_state" "sqs_update_video_chunk_status" {
   backend = "s3"
   config = {
     bucket = "fiap-tc-terraform-846874"
-    key    = "tech-challenge-project/SQS/terraform.tfstate"
+    key    = "tech-challenge-project/SQS/update-video-chunk-status/terraform.tfstate"
     region = "us-east-2"
   }
 }
 
-data "terraform_remote_state" "sns" {
+data "terraform_remote_state" "sqs_update_video_status" {
   backend = "s3"
   config = {
     bucket = "fiap-tc-terraform-846874"
-    key    = "tech-challenge-project/SNS/terraform.tfstate"
+    key    = "tech-challenge-project/SQS/update-video-status/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "sns_all_chunks_processed" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/SNS/all-chunks-processed/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "sns_video_processed_error" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/SNS/video-processed-error/terraform.tfstate"
     region = "us-east-2"
   }
 }
