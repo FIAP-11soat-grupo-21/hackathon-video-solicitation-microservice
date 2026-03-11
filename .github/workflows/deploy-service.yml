@@ -1,0 +1,128 @@
+name: Deploy Application
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'infra/**'
+      - '**'
+
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.set-image.outputs.image }}
+    env:
+      REGISTRY: ghcr.io
+      TOKEN: ${{ secrets.GHCR_TOKEN }}
+      USERNAME: ${{ github.actor }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set lowercase IMAGE_NAME
+        id: set-image-name
+        run: |
+          image_name="${GITHUB_REPOSITORY,,}"
+          echo "image_name=${image_name}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=${image_name}" >> $GITHUB_ENV
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.USERNAME }}
+          password: ${{ env.TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.set-image-name.outputs.image_name }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Set image output
+        id: set-image
+        run: |
+          image_tag="sha-${GITHUB_SHA:0:7}"
+          echo "IMAGE_TAG=${image_tag}" >> $GITHUB_ENV
+          echo "image=${REGISTRY}/${IMAGE_NAME}:${image_tag}" >> $GITHUB_OUTPUT
+
+  terraform-apply:
+    needs: build
+    name: Deploy - Terraform Apply
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      GIT_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      IMAGE: ${{ needs.build.outputs.image }}
+      AWS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.6.6"
+
+      - name: Setup SSH agent for git
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.GIT_SSH_KEY }}
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v5.1.0
+        with:
+          role-to-assume:  ${{ env.AWS_ROLE_ARN }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Adjust tfvars with image tag
+        working-directory: infra
+        run: |
+          sed -i -e "s|GHCR_IMAGE_TAG|${IMAGE}|g" values.tfvars
+
+      - name: Terraform Init
+        working-directory: infra
+        run: |
+          terraform init 
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: |
+          terraform plan -var-file=values.tfvars
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "This is a workflow_dispatch event. Performing a terraform plan first."
+            terraform apply -var-file=values.tfvars -auto-approve
+          else
+            terraform apply -var-file=values.tfvars -auto-approve -target=module.video_solicitation_api
+          fi
+
+      - name: Done
+        run: echo "Terraform apply finished."
