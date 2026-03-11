@@ -79,7 +79,7 @@ jobs:
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       GIT_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       IMAGE: ${{ needs.build.outputs.image }}
-      AWS_KEY_ID: ${{ secrets.AWS_KEY_ID }}
+      AWS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
 
     steps:
       - name: Checkout repository
