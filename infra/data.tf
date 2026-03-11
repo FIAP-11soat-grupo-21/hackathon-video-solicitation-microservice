@@ -65,7 +65,7 @@ data "terraform_remote_state" "auth" {
   backend = "s3"
   config = {
     bucket = "fiap-tc-terraform-846874"
-    key    = "tech-challenge-project/auth/terraform.tfstate"
+    key    = "tech-challenge-project/Lambda/Auth/terraform.tfstate"
     region = "us-east-2"
   }
 }
