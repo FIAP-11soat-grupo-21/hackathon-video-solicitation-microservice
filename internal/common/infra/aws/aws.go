@@ -31,11 +31,18 @@ func NewAWSClients(ctx context.Context, region, endpoint string) (*AWSClients, e
 		},
 	)
 
-	cfg, err := config.LoadDefaultConfig(ctx,
+	configOptions := []func(*config.LoadOptions) error{
 		config.WithRegion(region),
 		config.WithEndpointResolverWithOptions(customResolver),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("test", "test", "test")),
-	)
+	}
+
+	if endpoint != "" {
+		configOptions = append(configOptions, 
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("test", "test", "test")),
+		)
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx, configOptions...)
 	if err != nil {
 		return nil, err
 	}

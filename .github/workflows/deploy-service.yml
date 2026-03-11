@@ -12,6 +12,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 jobs:
   build:
@@ -21,7 +22,6 @@ jobs:
       image: ${{ steps.set-image.outputs.image }}
     env:
       REGISTRY: ghcr.io
-      TOKEN: ${{ secrets.GHCR_TOKEN }}
       USERNAME: ${{ github.actor }}
 
     steps:
@@ -40,7 +40,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ env.USERNAME }}
-          password: ${{ env.TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
