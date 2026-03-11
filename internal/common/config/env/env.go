@@ -25,9 +25,10 @@ type Config struct {
 		RunMigrate bool
 	}
 	AWS struct {
-		Region   string
-		Endpoint string
-		S3       struct {
+		Region         string
+		Endpoint       string
+		EndpointDynamo string
+		S3             struct {
 			BucketName string
 		}
 		SQS struct {
@@ -74,7 +75,8 @@ func (c *Config) Load() {
 
 	// AWS
 	c.AWS.Region = getEnv("AWS_REGION", "us-east-2")
-	c.AWS.Endpoint = getEnv("AWS_ENDPOINT", "")
+	c.AWS.Endpoint = getEnv("AWS_ENDPOINT", "http://localhost:8000")
+	c.AWS.EndpointDynamo = getEnv("AWS_ENDPOINT_DYNAMO", "http://localhost:8000")
 
 	// S3
 	c.AWS.S3.BucketName = getEnv("AWS_S3_BUCKET_NAME", "video-solicitation-bucket")

@@ -57,6 +57,9 @@ echo "✅ SNS topic '$VIDEO_PROCESSED_ERROR_EVENT' created"
 # =====================
 echo "▶ Creating SQS queues..."
 
+# awslocal sqs create-queue --queue-name update-chunk-status
+# awslocal sqs create-queue --queue-name update-video-status
+
 UPDATE_VIDEO_CHUNK_STATUS_QUEUE=update-video-chunk-status
 UPDATE_VIDEO_STATUS_QUEUE=update-video-status
 VIDEO_PROCESSING_ERROR_QUEUE=video-processing-error
