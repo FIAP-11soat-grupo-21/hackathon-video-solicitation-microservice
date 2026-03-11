@@ -16,18 +16,18 @@ module "video_solicitation_api" {
   // todo: ajustar remote state para pegar as variáveis certas
   ecs_container_environment_variables = merge(var.container_environment_variables,
     {
-      AWS_S3_BUCKET_NAME: data.terraform_remote_state.s3.outputs.bucket_name
-      SQS_UPDATE_VIDEO_CHUNK_STATUS_QUEUE_URL: data.terraform_remote_state.sqs.outputs.update_video_chunk_status_queue_url
-      SQS_UPDATE_VIDEO_STATUS_QUEUE_URL: data.terraform_remote_state.sqs.outputs.update_video_status_queue_url
-      SQS_VIDEO_PROCESSING_ERROR_QUEUE_URL: data.terraform_remote_state.sqs.outputs.video_processing_error_queue_url
-      ALL_CHUNK_PROCESSED_EVENT_ARN: data.terraform_remote_state.sns.outputs.all_chunk_processed_topic_arn
-      VIDEO_PROCESSED_ERROR_EVENT_ARN: data.terraform_remote_state.sns.outputs.video_processing_error_topic_arn
+      AWS_S3_BUCKET_NAME : data.terraform_remote_state.s3.outputs.bucket_name
+      SQS_UPDATE_VIDEO_CHUNK_STATUS_QUEUE_URL : data.terraform_remote_state.sqs.outputs.update_video_chunk_status_queue_url
+      SQS_UPDATE_VIDEO_STATUS_QUEUE_URL : data.terraform_remote_state.sqs.outputs.update_video_status_queue_url
+      SQS_VIDEO_PROCESSING_ERROR_QUEUE_URL : data.terraform_remote_state.sqs.outputs.video_processing_error_queue_url
+      ALL_CHUNK_PROCESSED_EVENT_ARN : data.terraform_remote_state.sns.outputs.all_chunk_processed_topic_arn
+      VIDEO_PROCESSED_ERROR_EVENT_ARN : data.terraform_remote_state.sns.outputs.video_processing_error_topic_arn
     }
   )
 
   // todo: adicionar secrets do DynamoDB
   ecs_container_secrets = merge(
-    var.container_secrets, 
+    var.container_secrets,
     {
     }
   )
