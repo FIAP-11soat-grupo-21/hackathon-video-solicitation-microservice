@@ -9,5 +9,6 @@ import (
 type VideoRepository interface {
 	Save(ctx context.Context, video *entity.Video) error
 	FindByID(ctx context.Context, id string) (*entity.Video, error)
+	FindByUserID(ctx context.Context, userID string) ([]*entity.Video, error)
 	Update(ctx context.Context, video *entity.Video) error
 }

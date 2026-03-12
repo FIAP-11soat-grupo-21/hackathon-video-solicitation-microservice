@@ -78,11 +78,12 @@ func main() {
 	// Instantiate use cases
 	createVideoUC := use_case.NewCreateVideo(videoRepo, blobStore)
 	getDownloadUC := use_case.NewGetDownloadLink(videoRepo, blobStore)
+	getVideosByUserUC := use_case.NewGetVideosByUser(videoRepo)
 	updateChunkUC := use_case.NewUpdateChunkStatus(videoRepo, publisher)
 	updateVideoUC := use_case.NewUpdateVideoStatus(videoRepo)
 
 	// Instantiate driver adapters
-	httpHandler := apiAdapter.NewVideoHandler(createVideoUC, getDownloadUC)
+	httpHandler := apiAdapter.NewVideoHandler(createVideoUC, getDownloadUC, getVideosByUserUC, updateVideoUC, updateChunkUC)
 	chunkConsumer := messagingDriver.NewChunkStatusConsumer(awsClients.SQSClient, cfg.AWS.SQS.UpdateChunkStatusQueueURL, updateChunkUC)
 	videoConsumer := messagingDriver.NewVideoStatusConsumer(awsClients.SQSClient, cfg.AWS.SQS.UpdateVideoStatusQueueURL, updateVideoUC)
 
