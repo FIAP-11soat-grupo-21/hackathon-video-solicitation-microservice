@@ -23,7 +23,7 @@ module "video_solicitation_api" {
       VIDEO_PROCESSED_ERROR_EVENT_ARN : data.terraform_remote_state.sns_video_processed_error.outputs.topic_arn
     }
   )
-  
+
   // todo: adicionar secrets do DynamoDB
   ecs_container_secrets = merge(
     var.container_secrets,
