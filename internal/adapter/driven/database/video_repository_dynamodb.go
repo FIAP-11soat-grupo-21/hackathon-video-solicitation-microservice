@@ -208,6 +208,47 @@ func getInt(item map[string]types.AttributeValue, key string) int {
 	return 0
 }
 
+func (r *videoRepositoryDynamoDB) Delete(ctx context.Context, videoID string, userID string) error {
+	// Delete chunks first
+	chunkQuery := &dynamodb.QueryInput{
+		TableName:              aws.String("chunks-09"),
+		KeyConditionExpression: aws.String("video_id = :vid"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":vid": &types.AttributeValueMemberS{Value: videoID},
+		},
+	}
+	chunkResp, err := r.db.Query(ctx, chunkQuery)
+	if err != nil {
+		return fmt.Errorf("failed to query chunks for deletion: %w", err)
+	}
+	for _, chunkItem := range chunkResp.Items {
+		_, err := r.db.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+			TableName: aws.String("chunks-09"),
+			Key: map[string]types.AttributeValue{
+				"video_id":    chunkItem["video_id"],
+				"part_number": chunkItem["part_number"],
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete chunk: %w", err)
+		}
+	}
+
+	// Delete the video
+	_, err = r.db.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String("videos-09"),
+		Key: map[string]types.AttributeValue{
+			"user_id":  &types.AttributeValueMemberS{Value: userID},
+			"video_id": &types.AttributeValueMemberS{Value: videoID},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete video: %w", err)
+	}
+
+	return nil
+}
+
 func (r *videoRepositoryDynamoDB) Update(ctx context.Context, video *entity.Video) error {
 	// Atualiza os campos do vídeo
 	_, err := r.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
