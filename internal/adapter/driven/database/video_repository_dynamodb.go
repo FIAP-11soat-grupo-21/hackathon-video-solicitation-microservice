@@ -44,7 +44,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 	}
 
 	_, err := r.db.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String("videos-09"),
+		TableName: aws.String("videos"),
 		Item:      item,
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 			"video_object_id":  &types.AttributeValueMemberS{Value: chunk.VideoObjectID},
 		}
 		_, err := r.db.PutItem(ctx, &dynamodb.PutItemInput{
-			TableName: aws.String("chunks-09"),
+			TableName: aws.String("chunks"),
 			Item:      chunkItem,
 		})
 		if err != nil {
@@ -77,7 +77,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 func (r *videoRepositoryDynamoDB) FindByID(ctx context.Context, videoID string) (*entity.Video, error) {
 	// Buscar vídeo pelo GSI video_id-index
 	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String("videos-09"),
+		TableName:              aws.String("videos"),
 		IndexName:              aws.String("video_id-index"),
 		KeyConditionExpression: aws.String("video_id = :vid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
@@ -122,7 +122,7 @@ func (r *videoRepositoryDynamoDB) FindByID(ctx context.Context, videoID string) 
 
 	// Buscar chunks
 	chunkQuery := &dynamodb.QueryInput{
-		TableName:              aws.String("chunks-09"),
+		TableName:              aws.String("chunks"),
 		KeyConditionExpression: aws.String("video_id = :vid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":vid": &types.AttributeValueMemberS{Value: videoID},
@@ -149,7 +149,7 @@ func (r *videoRepositoryDynamoDB) FindByID(ctx context.Context, videoID string) 
 
 func (r *videoRepositoryDynamoDB) FindByUserID(ctx context.Context, userID string) ([]*entity.Video, error) {
 	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String("videos-09"),
+		TableName:              aws.String("videos"),
 		KeyConditionExpression: aws.String("user_id = :uid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":uid": &types.AttributeValueMemberS{Value: userID},
@@ -211,7 +211,7 @@ func getInt(item map[string]types.AttributeValue, key string) int {
 func (r *videoRepositoryDynamoDB) Update(ctx context.Context, video *entity.Video) error {
 	// Atualiza os campos do vídeo
 	_, err := r.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName: aws.String("videos-09"),
+		TableName: aws.String("videos"),
 		Key: map[string]types.AttributeValue{
 			"user_id":  &types.AttributeValueMemberS{Value: video.User.ID},
 			"video_id": &types.AttributeValueMemberS{Value: video.ID},
@@ -234,7 +234,7 @@ func (r *videoRepositoryDynamoDB) Update(ctx context.Context, video *entity.Vide
 	// Atualiza o status dos chunks
 	for _, chunk := range video.Chunks {
 		_, err := r.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-			TableName: aws.String("chunks-09"),
+			TableName: aws.String("chunks"),
 			Key: map[string]types.AttributeValue{
 				"video_id":    &types.AttributeValueMemberS{Value: video.ID},
 				"part_number": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", chunk.PartNumber)},

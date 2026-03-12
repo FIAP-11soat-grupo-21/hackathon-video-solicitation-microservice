@@ -24,7 +24,7 @@ func CreateVideosTable(ctx context.Context, db *dynamodb.Client) error {
 	// do microserviço responsável pelo domínio de vídeos.
 
 	input := &dynamodb.CreateTableInput{
-		TableName: aws.String("videos-09"),
+		TableName: aws.String("videos"),
 
 		// AttributeDefinitions define apenas atributos usados em chaves
 		// (Primary Key ou índices). Diferente de banco relacional,
@@ -146,7 +146,7 @@ func CreateVideosTable(ctx context.Context, db *dynamodb.Client) error {
 func CreateChunksTable(ctx context.Context, db *dynamodb.Client) error {
 	fmt.Println("[DEBUG] CreateChunksTable: preparando input...")
 	input := &dynamodb.CreateTableInput{
-		TableName: aws.String("chunks-09"),
+		TableName: aws.String("chunks"),
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
 				AttributeName: aws.String("video_id"),
