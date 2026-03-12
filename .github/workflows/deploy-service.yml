@@ -2,10 +2,10 @@ name: Deploy Application
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'infra/**'
-      - '**'
+      - "infra/**"
+      - "**"
 
   workflow_dispatch:
 
@@ -15,8 +15,38 @@ permissions:
   packages: write
 
 jobs:
+  test:
+    name: Run Unit Tests and Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run unit tests with coverage
+        run: |
+          go test ./... -covermode=atomic -coverprofile=coverage.out
+
+      - name: Show coverage summary
+        run: |
+          go tool cover -func=coverage.out
+
+      - name: Enforce minimum coverage (80%)
+        run: |
+          TOTAL_COVERAGE=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $3); print $3}')
+          echo "Total coverage: ${TOTAL_COVERAGE}%"
+
+          awk -v coverage="$TOTAL_COVERAGE" 'BEGIN { if (coverage + 0 < 80) exit 1 }'
+
   build:
     name: Build and Push Docker Image
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.set-image.outputs.image }}
@@ -98,7 +128,7 @@ jobs:
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v5.1.0
         with:
-          role-to-assume:  ${{ env.AWS_ROLE_ARN }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ env.AWS_REGION }}
 
@@ -110,13 +140,13 @@ jobs:
       - name: Terraform Init
         working-directory: infra
         run: |
-          terraform init 
+          terraform init
 
       - name: Terraform Apply
         working-directory: infra
         run: |
           terraform plan -var-file=values.tfvars
-          
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "This is a workflow_dispatch event. Performing a terraform plan first."
             terraform apply -var-file=values.tfvars -auto-approve
