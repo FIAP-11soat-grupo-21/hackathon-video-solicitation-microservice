@@ -88,7 +88,8 @@ module "chunk_upload_notifier_lambda" {
   role_permissions = {
     dynamodb = {
       actions = [
-        "dynamodb:GetItem"
+        "dynamodb:GetItem",
+        "dynamodb:Scan"
       ]
       resources = [
         "arn:aws:dynamodb:${data.aws_region.current.id}:*:table/${var.dynamodb_table_name}"
@@ -100,14 +101,6 @@ module "chunk_upload_notifier_lambda" {
       ]
       resources = [
         data.terraform_remote_state.sqs_chunk_processor.outputs.sqs_queue_arn
-      ]
-    }
-    sns = {
-      actions = [
-        "sns:Publish"
-      ]
-      resources = [
-        data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
       ]
     }
   }

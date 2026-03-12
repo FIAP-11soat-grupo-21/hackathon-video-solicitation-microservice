@@ -14,15 +14,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"video_solicitation_microservice/internal/core/dto"
 )
 
 type ChunkUploadNotifierHandler struct {
 	dynamoClient *dynamodb.Client
-	snsClient    *sns.Client
-	snsTopicArn  string
+	sqsClient    *sqs.Client
+	sqsQueueUrl  string
 	tableName    string
 }
 
@@ -39,33 +39,27 @@ func NewChunkUploadNotifierHandler() (*ChunkUploadNotifierHandler, error) {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	snsTopicArn := os.Getenv("SNS_CHUNK_UPLOADED_TOPIC")
+	sqsQueueUrl := os.Getenv("SQS_CHUNK_PROCESSOR_QUEUE_URL")
 	tableName := os.Getenv("DYNAMODB_TABLE_NAME")
 
-	if snsTopicArn == "" || tableName == "" {
-		return nil, fmt.Errorf("SNS_CHUNK_UPLOADED_TOPIC and DYNAMODB_TABLE_NAME must be set")
+	if sqsQueueUrl == "" || tableName == "" {
+		return nil, fmt.Errorf("SQS_CHUNK_PROCESSOR_QUEUE_URL and DYNAMODB_TABLE_NAME must be set")
 	}
 
 	return &ChunkUploadNotifierHandler{
 		dynamoClient: dynamodb.NewFromConfig(awsCfg),
-		snsClient:    sns.NewFromConfig(awsCfg),
-		snsTopicArn:  snsTopicArn,
+		sqsClient:    sqs.NewFromConfig(awsCfg),
+		sqsQueueUrl:  sqsQueueUrl,
 		tableName:    tableName,
 	}, nil
 }
 
-func (h *ChunkUploadNotifierHandler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
-	log.Printf("Processing %d SQS messages", len(sqsEvent.Records))
+func (h *ChunkUploadNotifierHandler) Handle(ctx context.Context, snsEvent events.SNSEvent) error {
+	log.Printf("Processing %d SNS messages", len(snsEvent.Records))
 
-	for _, record := range sqsEvent.Records {
-		var snsMessage events.SNSEntity
-		if err := json.Unmarshal([]byte(record.Body), &snsMessage); err != nil {
-			log.Printf("Error parsing SNS message: %v", err)
-			continue
-		}
-
+	for _, record := range snsEvent.Records {
 		var s3Event events.S3Event
-		if err := json.Unmarshal([]byte(snsMessage.Message), &s3Event); err != nil {
+		if err := json.Unmarshal([]byte(record.SNS.Message), &s3Event); err != nil {
 			log.Printf("Error parsing S3 event: %v", err)
 			continue
 		}
@@ -117,12 +111,12 @@ func (h *ChunkUploadNotifierHandler) processS3Event(ctx context.Context, s3Recor
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	_, err = h.snsClient.Publish(ctx, &sns.PublishInput{
-		TopicArn: aws.String(h.snsTopicArn),
-		Message:  aws.String(string(messageJSON)),
+	_, err = h.sqsClient.SendMessage(ctx, &sqs.SendMessageInput{
+		QueueUrl:    aws.String(h.sqsQueueUrl),
+		MessageBody: aws.String(string(messageJSON)),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to publish to SNS: %w", err)
+		return fmt.Errorf("failed to send message to SQS: %w", err)
 	}
 
 	log.Printf("Successfully published chunk upload notification for video %s, chunk %d", videoID, chunkPart)
@@ -155,26 +149,28 @@ type VideoMetadata struct {
 }
 
 func (h *ChunkUploadNotifierHandler) getVideoMetadata(ctx context.Context, videoID string) (*VideoMetadata, error) {
-	result, err := h.dynamoClient.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(h.tableName),
-		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: videoID},
+	result, err := h.dynamoClient.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(h.tableName),
+		FilterExpression: aws.String("video_id = :id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":id": &types.AttributeValueMemberS{Value: videoID},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if result.Item == nil {
+	if len(result.Items) == 0 {
 		return nil, fmt.Errorf("video not found: %s", videoID)
 	}
 
+	item := result.Items[0]
 	metadata := &VideoMetadata{
-		UserID:         getStringValue(result.Item, "user_id"),
-		UserName:       getStringValue(result.Item, "user_name"),
-		UserEmail:      getStringValue(result.Item, "user_email"),
-		FramePerSecond: getIntValue(result.Item, "frames_per_second"),
-		TotalChunks:    getIntValue(result.Item, "total_chunks"),
+		UserID:         getStringValue(item, "user_id"),
+		UserName:       getStringValue(item, "user_name"),
+		UserEmail:      getStringValue(item, "user_email"),
+		FramePerSecond: getIntValue(item, "frames_per_second"),
+		TotalChunks:    getIntValue(item, "total_chunks"),
 	}
 
 	return metadata, nil
