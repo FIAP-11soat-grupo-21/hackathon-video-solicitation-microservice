@@ -72,8 +72,9 @@ module "chunk_upload_notifier_lambda" {
   environment = merge(
     var.lambda_environment_variables,
     {
-      SNS_CHUNK_UPLOADED_TOPIC = data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
-      DYNAMODB_TABLE_NAME      = var.dynamodb_table_name
+      SNS_CHUNK_UPLOADED_TOPIC         = data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
+      SQS_CHUNK_PROCESSOR_QUEUE_URL    = data.terraform_remote_state.sqs_chunk_processor.outputs.sqs_queue_url
+      DYNAMODB_TABLE_NAME              = var.dynamodb_table_name
     }
   )
   
@@ -95,10 +96,7 @@ module "chunk_upload_notifier_lambda" {
     }
     sqs = {
       actions = [
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes",
-        "sqs:GetQueueUrl"
+        "sqs:SendMessage"
       ]
       resources = [
         data.terraform_remote_state.sqs_chunk_processor.outputs.sqs_queue_arn
@@ -117,8 +115,16 @@ module "chunk_upload_notifier_lambda" {
   tags = data.terraform_remote_state.app_registry.outputs.app_registry_application_tag
 }
 
-resource "aws_lambda_event_source_mapping" "chunk_upload_notifier" {
-  event_source_arn = data.terraform_remote_state.sqs_chunk_processor.outputs.sqs_queue_arn
-  function_name    = module.chunk_upload_notifier_lambda.lambda_arn
-  batch_size       = 1
+resource "aws_lambda_permission" "allow_sns_invoke" {
+  statement_id  = "AllowExecutionFromSNS"
+  action        = "lambda:InvokeFunction"
+  function_name = module.chunk_upload_notifier_lambda.lambda_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
+}
+
+resource "aws_sns_topic_subscription" "chunk_upload_notifier_subscription" {
+  topic_arn = data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
+  protocol  = "lambda"
+  endpoint  = module.chunk_upload_notifier_lambda.lambda_arn
 }
