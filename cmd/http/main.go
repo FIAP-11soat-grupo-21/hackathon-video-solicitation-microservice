@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+
 	blobStorageAdapter "video_solicitation_microservice/internal/adapter/driven/blob_storage"
 	databaseAdapter "video_solicitation_microservice/internal/adapter/driven/database"
 	messagingAdapter "video_solicitation_microservice/internal/adapter/driven/messaging"
@@ -15,9 +18,6 @@ import (
 	infraAWS "video_solicitation_microservice/internal/common/infra/aws"
 	infraDB "video_solicitation_microservice/internal/common/infra/database"
 	"video_solicitation_microservice/internal/core/use_case"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 )
 
 func main() {
@@ -30,14 +30,19 @@ func main() {
 	log.Printf("AWS_ENDPOINT: %s", cfg.AWS.Endpoint)
 	log.Printf("AWS_ENDPOINT_DYNAMO: %s", cfg.AWS.EndpointDynamo)
 	// Initialize AWS config for DynamoDB
-	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.AWS.Region), config.WithEndpointResolver(aws.EndpointResolverFunc(
-		func(service, region string) (aws.Endpoint, error) {
-			return aws.Endpoint{URL: cfg.AWS.EndpointDynamo}, nil
-		},
-	)))
-	if err != nil {
-		log.Fatalf("Failed to load AWS config: %v", err)
+	configOptions := []func(*config.LoadOptions) error{
+		config.WithRegion(cfg.AWS.Region),
 	}
+
+	if cfg.AWS.EndpointDynamo != "" {
+		configOptions = append(configOptions, config.WithEndpointResolver(aws.EndpointResolverFunc(
+			func(service, region string) (aws.Endpoint, error) {
+				return aws.Endpoint{URL: cfg.AWS.EndpointDynamo}, nil
+			},
+		)))
+	}
+
+	awsCfg, err := config.LoadDefaultConfig(ctx, configOptions...)
 
 	// Initialize DynamoDB client
 	db, err := infraDB.NewDynamoDB(awsCfg)

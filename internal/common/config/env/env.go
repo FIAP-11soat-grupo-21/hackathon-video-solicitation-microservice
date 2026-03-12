@@ -75,8 +75,8 @@ func (c *Config) Load() {
 
 	// AWS
 	c.AWS.Region = getEnv("AWS_REGION", "us-east-2")
-	c.AWS.Endpoint = getEnv("AWS_ENDPOINT", "http://localhost:8000")
-	c.AWS.EndpointDynamo = getEnv("AWS_ENDPOINT_DYNAMO", "http://localhost:8000")
+	c.AWS.Endpoint = getEnv("AWS_ENDPOINT", "")
+	c.AWS.EndpointDynamo = getEnv("AWS_ENDPOINT_DYNAMO", "")
 
 	// S3
 	c.AWS.S3.BucketName = getEnv("AWS_S3_BUCKET_NAME", "video-solicitation-bucket")
