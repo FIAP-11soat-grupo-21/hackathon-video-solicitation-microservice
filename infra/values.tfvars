@@ -41,9 +41,7 @@ authorization_name = "CognitoAuthorizer"
 # =======================================================
 # Configurações da Lambda
 # =======================================================
-lambda_environment_variables = {
-  AWS_REGION : "us-east-2"
-}
+lambda_environment_variables = {}
 
 lambda_bucket_name           = "fiap-tc-lambda-functions"
 chunk_upload_notifier_s3_key = "chunk-upload-notifier.zip"
