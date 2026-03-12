@@ -3,6 +3,7 @@ package database
 import (
 	context "context"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 	"video_solicitation_microservice/internal/core/domain/entity"
@@ -14,14 +15,41 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const (
+	defaultVideosTableName = "videos"
+	defaultChunksTableName = "chunks"
+	batchWriteMaxItems     = 25 // DynamoDB BatchWriteItem limit
+)
+
 // Repositório DynamoDB para vídeos
 
 type videoRepositoryDynamoDB struct {
-	db *dynamodb.Client
+	db              *dynamodb.Client
+	videosTableName string
+	chunksTableName string
 }
 
-func NewVideoRepositoryDynamoDB(db *dynamodb.Client) port.VideoRepository {
-	return &videoRepositoryDynamoDB{db: db}
+func NewVideoRepositoryDynamoDB(db *dynamodb.Client, opts ...func(*videoRepositoryDynamoDB)) port.VideoRepository {
+	repo := &videoRepositoryDynamoDB{
+		db:              db,
+		videosTableName: defaultVideosTableName,
+		chunksTableName: defaultChunksTableName,
+	}
+	for _, opt := range opts {
+		opt(repo)
+	}
+	return repo
+}
+
+func WithTableNames(videosTable, chunksTable string) func(*videoRepositoryDynamoDB) {
+	return func(r *videoRepositoryDynamoDB) {
+		if videosTable != "" {
+			r.videosTableName = videosTable
+		}
+		if chunksTable != "" {
+			r.chunksTableName = chunksTable
+		}
+	}
 }
 
 func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video) error {
@@ -44,7 +72,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 	}
 
 	_, err := r.db.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String("videos"),
+		TableName: aws.String(r.videosTableName),
 		Item:      item,
 	})
 	if err != nil {
@@ -63,7 +91,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 			"video_object_id":  &types.AttributeValueMemberS{Value: chunk.VideoObjectID},
 		}
 		_, err := r.db.PutItem(ctx, &dynamodb.PutItemInput{
-			TableName: aws.String("chunks"),
+			TableName: aws.String(r.chunksTableName),
 			Item:      chunkItem,
 		})
 		if err != nil {
@@ -77,7 +105,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 func (r *videoRepositoryDynamoDB) FindByID(ctx context.Context, videoID string) (*entity.Video, error) {
 	// Buscar vídeo pelo GSI video_id-index
 	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String("videos"),
+		TableName:              aws.String(r.videosTableName),
 		IndexName:              aws.String("video_id-index"),
 		KeyConditionExpression: aws.String("video_id = :vid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
@@ -122,7 +150,7 @@ func (r *videoRepositoryDynamoDB) FindByID(ctx context.Context, videoID string) 
 
 	// Buscar chunks
 	chunkQuery := &dynamodb.QueryInput{
-		TableName:              aws.String("chunks"),
+		TableName:              aws.String(r.chunksTableName),
 		KeyConditionExpression: aws.String("video_id = :vid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":vid": &types.AttributeValueMemberS{Value: videoID},
@@ -149,7 +177,7 @@ func (r *videoRepositoryDynamoDB) FindByID(ctx context.Context, videoID string) 
 
 func (r *videoRepositoryDynamoDB) FindByUserID(ctx context.Context, userID string) ([]*entity.Video, error) {
 	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String("videos"),
+		TableName:              aws.String(r.videosTableName),
 		KeyConditionExpression: aws.String("user_id = :uid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":uid": &types.AttributeValueMemberS{Value: userID},
@@ -209,34 +237,67 @@ func getInt(item map[string]types.AttributeValue, key string) int {
 }
 
 func (r *videoRepositoryDynamoDB) Delete(ctx context.Context, videoID string, userID string) error {
-	// Delete chunks first
-	chunkQuery := &dynamodb.QueryInput{
-		TableName:              aws.String("chunks-09"),
-		KeyConditionExpression: aws.String("video_id = :vid"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":vid": &types.AttributeValueMemberS{Value: videoID},
-		},
-	}
-	chunkResp, err := r.db.Query(ctx, chunkQuery)
-	if err != nil {
-		return fmt.Errorf("failed to query chunks for deletion: %w", err)
-	}
-	for _, chunkItem := range chunkResp.Items {
-		_, err := r.db.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-			TableName: aws.String("chunks-09"),
-			Key: map[string]types.AttributeValue{
-				"video_id":    chunkItem["video_id"],
-				"part_number": chunkItem["part_number"],
+	// Delete all chunks with pagination and BatchWriteItem
+	var lastEvaluatedKey map[string]types.AttributeValue
+
+	for {
+		chunkQuery := &dynamodb.QueryInput{
+			TableName:              aws.String(r.chunksTableName),
+			KeyConditionExpression: aws.String("video_id = :vid"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":vid": &types.AttributeValueMemberS{Value: videoID},
 			},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to delete chunk: %w", err)
+			ProjectionExpression: aws.String("video_id, part_number"),
 		}
+		if lastEvaluatedKey != nil {
+			chunkQuery.ExclusiveStartKey = lastEvaluatedKey
+		}
+
+		chunkResp, err := r.db.Query(ctx, chunkQuery)
+		if err != nil {
+			return fmt.Errorf("failed to query chunks for deletion: %w", err)
+		}
+
+		// Build BatchWriteItem requests in groups of 25 (DynamoDB limit)
+		for i := 0; i < len(chunkResp.Items); i += batchWriteMaxItems {
+			end := i + batchWriteMaxItems
+			if end > len(chunkResp.Items) {
+				end = len(chunkResp.Items)
+			}
+
+			writeRequests := make([]types.WriteRequest, 0, end-i)
+			for _, chunkItem := range chunkResp.Items[i:end] {
+				writeRequests = append(writeRequests, types.WriteRequest{
+					DeleteRequest: &types.DeleteRequest{
+						Key: map[string]types.AttributeValue{
+							"video_id":    chunkItem["video_id"],
+							"part_number": chunkItem["part_number"],
+						},
+					},
+				})
+			}
+
+			_, err := r.db.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+				RequestItems: map[string][]types.WriteRequest{
+					r.chunksTableName: writeRequests,
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to batch delete chunks: %w", err)
+			}
+		}
+
+		// Check if there are more pages
+		if chunkResp.LastEvaluatedKey == nil {
+			break
+		}
+		lastEvaluatedKey = chunkResp.LastEvaluatedKey
+		log.Printf("Paginating chunk deletion for video %s, more pages remaining...", videoID)
 	}
 
 	// Delete the video
-	_, err = r.db.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String("videos-09"),
+	_, err := r.db.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(r.videosTableName),
 		Key: map[string]types.AttributeValue{
 			"user_id":  &types.AttributeValueMemberS{Value: userID},
 			"video_id": &types.AttributeValueMemberS{Value: videoID},
@@ -252,7 +313,7 @@ func (r *videoRepositoryDynamoDB) Delete(ctx context.Context, videoID string, us
 func (r *videoRepositoryDynamoDB) Update(ctx context.Context, video *entity.Video) error {
 	// Atualiza os campos do vídeo
 	_, err := r.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName: aws.String("videos"),
+		TableName: aws.String(r.videosTableName),
 		Key: map[string]types.AttributeValue{
 			"user_id":  &types.AttributeValueMemberS{Value: video.User.ID},
 			"video_id": &types.AttributeValueMemberS{Value: video.ID},
@@ -275,7 +336,7 @@ func (r *videoRepositoryDynamoDB) Update(ctx context.Context, video *entity.Vide
 	// Atualiza o status dos chunks
 	for _, chunk := range video.Chunks {
 		_, err := r.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-			TableName: aws.String("chunks"),
+			TableName: aws.String(r.chunksTableName),
 			Key: map[string]types.AttributeValue{
 				"video_id":    &types.AttributeValueMemberS{Value: video.ID},
 				"part_number": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", chunk.PartNumber)},

@@ -13,16 +13,16 @@ import (
 )
 
 type snsPublisher struct {
-	client                      *sns.Client
-	allChunkProcessedTopicARN   string
-	videoProcessedErrorTopicARN string
+	client                       *sns.Client
+	allChunkProcessedTopicARN    string
+	videoProcessingErrorTopicARN string
 }
 
-func NewSNSPublisher(client *sns.Client, allChunkProcessedTopicARN string, videoProcessedErrorTopicARN string) port.MessagePublisher {
+func NewSNSPublisher(client *sns.Client, allChunkProcessedTopicARN string, videoProcessingErrorTopicARN string) port.MessagePublisher {
 	return &snsPublisher{
-		client:                      client,
-		allChunkProcessedTopicARN:   allChunkProcessedTopicARN,
-		videoProcessedErrorTopicARN: videoProcessedErrorTopicARN,
+		client:                       client,
+		allChunkProcessedTopicARN:    allChunkProcessedTopicARN,
+		videoProcessingErrorTopicARN: videoProcessingErrorTopicARN,
 	}
 }
 
@@ -50,7 +50,7 @@ func (p *snsPublisher) PublishVideoProcessingError(ctx context.Context, payload 
 	}
 
 	_, err = p.client.Publish(ctx, &sns.PublishInput{
-		TopicArn: aws.String(p.videoProcessedErrorTopicARN),
+		TopicArn: aws.String(p.videoProcessingErrorTopicARN),
 		Message:  aws.String(string(data)),
 	})
 	if err != nil {
