@@ -123,3 +123,23 @@ data "terraform_remote_state" "sns_video_processed_error" {
     region = "us-east-2"
   }
 }
+
+data "terraform_remote_state" "sns_chunk_uploaded" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/SNS/chunk-uploaded/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "sqs_chunk_processor" {
+  backend = "s3"
+  config = {
+    bucket = "fiap-tc-terraform-846874"
+    key    = "tech-challenge-project/SQS/chunk-processor/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "aws_region" "current" {}

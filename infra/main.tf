@@ -60,3 +60,65 @@ module "GetVideoSolicitationAPIRoute" {
     }
   }
 }
+
+module "chunk_upload_notifier_lambda" {
+  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/Lambda?ref=main"
+
+  lambda_name = "chunk-upload-notifier"
+  handler     = "bootstrap"
+  runtime     = "provided.al2023"
+  subnet_ids  = data.terraform_remote_state.network_vpc.outputs.private_subnets
+  
+  environment = merge(
+    var.lambda_environment_variables,
+    {
+      SNS_CHUNK_UPLOADED_TOPIC = data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
+      DYNAMODB_TABLE_NAME      = var.dynamodb_table_name
+    }
+  )
+  
+  vpc_id      = data.terraform_remote_state.network_vpc.outputs.vpc_id
+  memory_size = 256
+  timeout     = 30
+
+  s3_bucket = var.lambda_bucket_name
+  s3_key    = var.chunk_upload_notifier_s3_key
+
+  role_permissions = {
+    dynamodb = {
+      actions = [
+        "dynamodb:GetItem"
+      ]
+      resources = [
+        "arn:aws:dynamodb:${data.aws_region.current.id}:*:table/${var.dynamodb_table_name}"
+      ]
+    }
+    sqs = {
+      actions = [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+      ]
+      resources = [
+        data.terraform_remote_state.sqs_chunk_processor.outputs.sqs_queue_arn
+      ]
+    }
+    sns = {
+      actions = [
+        "sns:Publish"
+      ]
+      resources = [
+        data.terraform_remote_state.sns_chunk_uploaded.outputs.topic_arn
+      ]
+    }
+  }
+
+  tags = data.terraform_remote_state.app_registry.outputs.app_registry_application_tag
+}
+
+resource "aws_lambda_event_source_mapping" "chunk_upload_notifier" {
+  event_source_arn = data.terraform_remote_state.sqs_chunk_processor.outputs.sqs_queue_arn
+  function_name    = module.chunk_upload_notifier_lambda.lambda_arn
+  batch_size       = 1
+}

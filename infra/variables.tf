@@ -86,3 +86,25 @@ variable "app_path_pattern" {
   description = "Lista de padrões de caminho para o listener rule do ALB"
   type        = list(string)
 }
+
+variable "lambda_environment_variables" {
+  description = "Variáveis de ambiente para as lambdas"
+  type        = map(string)
+  default     = {}
+}
+
+variable "lambda_bucket_name" {
+  description = "Nome do bucket S3 onde estão os zips das lambdas"
+  type        = string
+}
+
+variable "chunk_upload_notifier_s3_key" {
+  description = "Chave S3 do zip da lambda chunk-upload-notifier"
+  type        = string
+}
+
+variable "dynamodb_table_name" {
+  description = "Nome da tabela DynamoDB para video-chunks"
+  type        = string
+  default     = "videos-05"
+}

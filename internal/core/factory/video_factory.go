@@ -29,7 +29,8 @@ func NewVideo(input dto.CreateVideoInput) *entity.Video {
 			DurationSeconds: input.Metadata.DurationSeconds,
 			SizeBytes:       input.Metadata.SizeBytes,
 		},
-		Status: value_object.VideoStatusPending,
+		FramesPerSecond: input.FramesPerSecond,
+		Status:          value_object.VideoStatusPending,
 		FileLocation: entity.FileLocation{
 			BucketName:       cfg.AWS.S3.BucketName,
 			VideoChunkFolder: fmt.Sprintf("videos/%s/chunks/", id),

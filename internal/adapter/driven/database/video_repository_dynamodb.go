@@ -31,6 +31,8 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 		"file_name":          &types.AttributeValueMemberS{Value: video.Metadata.FileName},
 		"duration_seconds":   &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", video.Metadata.DurationSeconds)},
 		"size_bytes":         &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", video.Metadata.SizeBytes)},
+		"frames_per_second":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", video.FramesPerSecond)},
+		"total_chunks":       &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", video.TotalChunks)},
 		"status":             &types.AttributeValueMemberS{Value: string(video.Status)},
 		"bucket_name":        &types.AttributeValueMemberS{Value: video.FileLocation.BucketName},
 		"video_chunk_folder": &types.AttributeValueMemberS{Value: video.FileLocation.VideoChunkFolder},

@@ -11,15 +11,17 @@ import (
 )
 
 type Video struct {
-	ID           string
-	User         User
-	Metadata     Metadata
-	Status       value_object.VideoStatus
-	Chunks       []Chunk
-	FileLocation FileLocation
-	ErrorCause   string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID              string
+	User            User
+	Metadata        Metadata
+	FramesPerSecond int
+	TotalChunks     int 
+	Status          value_object.VideoStatus
+	Chunks          []Chunk
+	FileLocation    FileLocation
+	ErrorCause      string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // CalculateChunks computes and populates chunks based on duration and ChunkDurationSeconds.
@@ -27,6 +29,8 @@ func (v *Video) CalculateChunks(framesPerSecond int) {
 	duration := v.Metadata.DurationSeconds
 	chunkDuration := constant.ChunkDurationSeconds
 	totalChunks := int(math.Ceil(float64(duration) / float64(chunkDuration)))
+
+	v.TotalChunks = totalChunks 
 
 	chunks := make([]Chunk, 0, totalChunks)
 	for i := 0; i < totalChunks; i++ {
