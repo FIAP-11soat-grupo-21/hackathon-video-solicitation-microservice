@@ -182,6 +182,57 @@ func (r *videoRepositorySQLite) Update(ctx context.Context, video *entity.Video)
 	return tx.Commit()
 }
 
+func (r *videoRepositorySQLite) FindByUserID(ctx context.Context, userID string) ([]*entity.Video, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, user_id, user_name, user_email, file_name, duration_seconds, size_bytes, status, bucket_name, video_chunk_folder, image_folder, download_url, error_cause, created_at, updated_at
+		FROM videos WHERE user_id = ? ORDER BY created_at`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query videos by user_id: %w", err)
+	}
+	defer rows.Close()
+
+	var videos []*entity.Video
+	for rows.Next() {
+		video := &entity.Video{}
+		var status string
+		var downloadURL, errorCause sql.NullString
+		var createdAt, updatedAt string
+		if err := rows.Scan(
+			&video.ID,
+			&video.User.ID,
+			&video.User.Name,
+			&video.User.Email,
+			&video.Metadata.FileName,
+			&video.Metadata.DurationSeconds,
+			&video.Metadata.SizeBytes,
+			&status,
+			&video.FileLocation.BucketName,
+			&video.FileLocation.VideoChunkFolder,
+			&video.FileLocation.ImageFolder,
+			&downloadURL,
+			&errorCause,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan video: %w", err)
+		}
+		video.Status = value_object.VideoStatus(status)
+		video.FileLocation.DownloadURL = downloadURL.String
+		video.ErrorCause = errorCause.String
+		if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			video.CreatedAt = t
+		}
+		if t, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+			video.UpdatedAt = t
+		}
+		videos = append(videos, video)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating videos: %w", err)
+	}
+	return videos, nil
+}
+
 func nullString(s string) sql.NullString {
 	if s == "" {
 		return sql.NullString{Valid: false}

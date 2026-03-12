@@ -32,6 +32,10 @@ func (uc *UpdateVideoStatus) Execute(ctx context.Context, input dto.UpdateVideoS
 	status := value_object.VideoStatus(input.Status)
 
 	switch status {
+	case value_object.VideoStatusProcessing:
+		if err := video.TransitionTo(value_object.VideoStatusProcessing); err != nil {
+			return err
+		}
 	case value_object.VideoStatusCompleted:
 		if err := video.Complete(input.DownloadURL); err != nil {
 			return err

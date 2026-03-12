@@ -1,9 +1,6 @@
 # hackathon-video-solicitation-microservice
 
-
 ## Objetivo
-
-<img src="assets/logo_dynamodb.png" alt="DynamoDB Logo" width="120" align="right" />
 
 Este microsserviço é responsável por receber solicitações de processamento de vídeos, persistir os metadados e status de cada vídeo, e garantir escalabilidade e confiabilidade. O serviço foi projetado para suportar múltiplos vídeos por usuário, manter o histórico de status, e facilitar integrações com outros sistemas de processamento e mensageria.
 
@@ -41,73 +38,79 @@ Isso irá:
 - Use o **NoSQL Workbench for DynamoDB** para conectar em `http://localhost:8000` e visualizar/testar a tabela criada.
 - Você pode consultar, inserir e atualizar dados diretamente pelo Workbench.
 
+## Modelagem DynamoDB
 
-## Modelagem de dados DynamoDB (planejada)
+### Tabela de vídeos
+- Partition Key: user_id
+- Sort Key: video_id
+- GSI 1: video_id-index (busca por id do vídeo)
+- GSI 2: status-index (busca por status e ordena por created_at)
 
-A tabela `Videos` foi modelada para suportar consultas eficientes e escalabilidade:
+**Campos salvos em cada item:**
+- video_id
+- user_id
+- user_name
+- user_email
+- file_name
+- duration_seconds
+- size_bytes
+- status
+- bucket_name
+- video_chunk_folder
+- image_folder
+- download_url
+- error_cause
+- created_at
+- updated_at
 
-- **Partition Key:** `user_id` (permite buscar todos os vídeos de um usuário)
-- **Sort Key:** `id` (identifica cada vídeo)
-- **Atributos:**
-  - `user_name`
-  - `user_email`
-  - `file_name`
-  - `duration_seconds`
-  - `size_bytes`
-  - `status`
-  - `bucket_name`
-  - `video_chunk_folder`
-  - `image_folder`
-  - `download_url`
-  - `error_cause`
-  - `created_at`
-  - `updated_at`
-
-**Índices:**
-- **LSI:** ordenação por data (`created_at`) para consultas por usuário.
-- **GSI:** busca direta por vídeo (`id`).
-
-## Diagrama da modelagem DynamoDB
+### Tabela de chunks
+- Partition Key: video_id
+- Sort Key: part_number
+- GSI: video_id-index (busca todos os chunks de um vídeo)
 
 ```mermaid
-erDiagram
-    USER ||--o{ VIDEO : "possui"
-    VIDEO {
-        string id PK, GSI
-        string user_id PK
-        string user_name
-        string user_email
-        string file_name
-        int duration_seconds
-        int size_bytes
-        string status
-        string bucket_name
-        string video_chunk_folder
-        string image_folder
-        string download_url
-        string error_cause
-        string created_at LSI
-        string updated_at
+classDiagram
+    class Videos {
+        user_id PK
+        video_id SK
+        user_name
+        user_email
+        file_name
+        duration_seconds
+        size_bytes
+        status
+        bucket_name
+        video_chunk_folder
+        image_folder
+        download_url
+        error_cause
+        created_at
+        updated_at
+        <<GSI>> video_id-index (video_id)
+        <<GSI>> status-index (status, created_at)
+    }
+    class Chunks {
+        video_id PK
+        part_number SK
+        start_time
+        end_time
+        frame_per_second
+        status
+        video_object_id
+        id
+        <<GSI>> video_id-index (video_id)
     }
 ```
 
-## Rotas disponíveis para teste rápido
+## Endpoints
 
-- **POST /videos**
-  - Upload de vídeo (multipart/form-data)
-- **GET /videos/user/:user_id**
-  - Listar vídeos de um usuário
-- **GET /videos/:id**
-  - Buscar vídeo por ID
-- **PUT /videos/:id**
-  - Atualizar status ou informações do vídeo
-
-## Exemplo de Payload para POST /v1/videos
-
+### Criar solicitação de processamento de vídeo
+- **POST** `/v1/videos`
+- **Body (JSON):**
 ```json
 {
   "user": {
-    "id": "123",
+    "id": "456",
     "name": "fulano",
     "email": "teste@hotmail.com"
   },
@@ -120,6 +123,44 @@ erDiagram
 }
 ```
 
-> Envie esse JSON no corpo da requisição para criar um vídeo.
+### Buscar link de download de um vídeo por ID
+- **GET** `/v1/videos/{video_id}/download`
+- Não passa nada no body, só o `video_id` na URL.
 
-## Dúvidas?
+### Buscar todos os vídeos de um usuário
+- **GET** `/v1/videos/user/{user_id}`
+- Não passa nada no body, só o `user_id` na URL.
+
+### Atualizar status do vídeo
+- **PATCH** `/v1/videos/{video_id}/status`
+- **Body (JSON):**
+```json
+{
+  "status": "COMPLETED",
+  "download_url": "https://meuarquivo.com/video.mp4",
+  "error_cause": "teste"
+}
+```
+
+### Atualizar status de um chunk
+- **PATCH** `/v1/videos/{video_id}/chunks/{part_number}/status`
+- **Body (JSON):**
+```json
+{
+  "status": "PROCESSING"
+}
+```
+
+## Requisitos e validações
+- Formato de vídeos suportados: MP4
+- Tamanho máximo permitido por vídeo: 10 GB
+- Intervalo de fotos: 1 frame a cada 1 segundo
+
+## Como limpar o DynamoDB Local
+1. Pare os containers: `docker-compose down -v --remove-orphans`
+2. Remova o volume: `docker volume rm hackathon-video-solicitation-microservice_dynamodb`
+3. Suba novamente: `docker-compose up --build`
+
+## Observações
+- O DynamoDB é schema-less, só atributos de chave e índices são definidos.
+- Os fluxos de consulta são otimizados para os requisitos do domínio.
