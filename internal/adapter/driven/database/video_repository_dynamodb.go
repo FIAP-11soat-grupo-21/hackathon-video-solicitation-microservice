@@ -42,7 +42,7 @@ func (r *videoRepositoryDynamoDB) Save(ctx context.Context, video *entity.Video)
 	}
 
 	_, err := r.db.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String("Videos-05"),
+		TableName: aws.String("videos-05"),
 		Item:      item,
 	})
 	if err != nil {
