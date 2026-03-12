@@ -15,15 +15,15 @@ permissions:
   packages: write
 
 jobs:
-  test:
-    name: Run Unit Tests and Coverage
+  SonarScan:
+    name: SonarCloud Scan
     runs-on: ubuntu-latest
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: https://sonarcloud.io
+      SONAR_PROJECT_KEY: "FIAP-11soat-grupo-21_hackathon-auth-microservice"
+      SONAR_ORGANIZATION: "fiap-11soat-grupo-21"
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -31,28 +31,36 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-          cache: true
+          go-version: "1.25.x"
 
-      - name: Run unit tests with coverage
+      - name: Clean workspace
         run: |
-          go test ./... -covermode=atomic -coverprofile=coverage.out
+          rm -rf .scannerwork || true
+          go clean -testcache
 
-      - name: Show coverage summary
+      - name: Run tests with coverage
+        working-directory: internal
+        env:
+          GO_ENV: test
         run: |
-          go tool cover -func=coverage.out
+          go test ./... -coverprofile=coverage.out
 
-      - name: SonarQube Cloud Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-
-      - name: SonarQube Cloud Quality Gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          pollingTimeoutSec: 600
+          projectBaseDir: internal
+          args: >
+            -Dsonar.verbose=true
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.coverage.exclusions="**/*_test.go,**/*mock*.go,**/mocks/**,**/bdd/**"
 
   build:
     name: Build and Push Docker Image
-    needs: test
+    needs: SonarScan
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
