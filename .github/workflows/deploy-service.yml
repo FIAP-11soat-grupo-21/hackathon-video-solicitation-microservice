@@ -43,20 +43,28 @@ jobs:
         env:
           GO_ENV: test
         run: |
-          go test ./... -coverprofile=coverage.out
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Display coverage report
+        working-directory: internal
+        run: |
+          echo "Coverage file size:"
+          ls -lh coverage.out || echo "Coverage file not found!"
+          echo "Coverage summary:"
+          go tool cover -func=coverage.out | tail -1 || echo "Could not display coverage summary"
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          projectBaseDir: internal
+          projectBaseDir: .
           args: >
             -Dsonar.verbose=true
-            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.go.coverage.reportPaths=internal/coverage.out
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
-            -Dsonar.coverage.exclusions="**/*_test.go,**/*mock*.go,**/mocks/**,**/bdd/**"
+            -Dsonar.coverage.exclusions="**/*_test.go,**/*_mock.go,**/mocks/**"
 
   build:
     name: Build and Push Docker Image
