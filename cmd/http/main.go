@@ -73,19 +73,23 @@ func main() {
 	// Instantiate driven adapters
 	videoRepo := databaseAdapter.NewVideoRepositoryDynamoDB(db)
 	blobStore := blobStorageAdapter.NewS3Storage(awsClients.S3Client)
-	publisher := messagingAdapter.NewSNSPublisher(awsClients.SNSClient, cfg.AWS.SNS.AllChunkProcessedEventARN)
+	publisher := messagingAdapter.NewSNSPublisher(awsClients.SNSClient, cfg.AWS.SNS.AllChunkProcessedEventARN, cfg.AWS.SNS.VideoProcessedErrorEventARN)
 
 	// Instantiate use cases
 	createVideoUC := use_case.NewCreateVideo(videoRepo, blobStore)
 	getDownloadUC := use_case.NewGetDownloadLink(videoRepo, blobStore)
 	getVideosByUserUC := use_case.NewGetVideosByUser(videoRepo)
 	updateChunkUC := use_case.NewUpdateChunkStatus(videoRepo, publisher)
-	updateVideoUC := use_case.NewUpdateVideoStatus(videoRepo)
+	updateVideoUC := use_case.NewUpdateVideoStatus(videoRepo, publisher)
 
 	// Instantiate driver adapters
 	httpHandler := apiAdapter.NewVideoHandler(createVideoUC, getDownloadUC, getVideosByUserUC, updateVideoUC, updateChunkUC)
 	chunkConsumer := messagingDriver.NewChunkStatusConsumer(awsClients.SQSClient, cfg.AWS.SQS.UpdateChunkStatusQueueURL, updateChunkUC)
 	videoConsumer := messagingDriver.NewVideoStatusConsumer(awsClients.SQSClient, cfg.AWS.SQS.UpdateVideoStatusQueueURL, updateVideoUC)
+
+	// Instantiate rollback use case and error consumer
+	rollbackUC := use_case.NewRollbackVideoProcessing(videoRepo, blobStore)
+	errorConsumer := messagingDriver.NewVideoProcessingErrorConsumer(awsClients.SQSClient, cfg.AWS.SQS.VideoProcessingErrorQueueURL, rollbackUC)
 
 	// Setup HTTP router and register routesVIDEO_PROCESSED_ERROR_EVENT_ARN
 	router := infraAPI.NewRouter()
@@ -97,6 +101,7 @@ func main() {
 
 	go chunkConsumer.Start(consumerCtx)
 	go videoConsumer.Start(consumerCtx)
+	go errorConsumer.Start(consumerCtx)
 	log.Println("SQS consumers started")
 
 	// Start HTTP server (blocks until shutdown signal)

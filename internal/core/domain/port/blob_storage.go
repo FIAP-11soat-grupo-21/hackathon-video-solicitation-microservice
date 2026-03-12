@@ -8,4 +8,5 @@ import (
 type BlobStorage interface {
 	GeneratePreSignedUploadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error)
 	GeneratePreSignedDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error)
+	DeleteObjectsByPrefix(ctx context.Context, bucket, prefix string) error
 }

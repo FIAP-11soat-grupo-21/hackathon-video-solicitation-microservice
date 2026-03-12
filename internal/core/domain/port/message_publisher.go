@@ -8,4 +8,5 @@ import (
 
 type MessagePublisher interface {
 	PublishAllChunksProcessed(ctx context.Context, payload dto.AllChunksProcessedEvent) error
+	PublishVideoProcessingError(ctx context.Context, payload dto.VideoProcessingErrorEvent) error
 }

@@ -233,6 +233,26 @@ func (r *videoRepositorySQLite) FindByUserID(ctx context.Context, userID string)
 	return videos, nil
 }
 
+func (r *videoRepositorySQLite) Delete(ctx context.Context, videoID string, userID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `DELETE FROM chunks WHERE video_id = ?`, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete chunks: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `DELETE FROM videos WHERE id = ? AND user_id = ?`, videoID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete video: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 func nullString(s string) sql.NullString {
 	if s == "" {
 		return sql.NullString{Valid: false}
