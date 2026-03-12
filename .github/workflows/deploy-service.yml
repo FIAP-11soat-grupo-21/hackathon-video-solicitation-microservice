@@ -18,10 +18,15 @@ jobs:
   test:
     name: Run Unit Tests and Coverage
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: https://sonarcloud.io
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -37,12 +42,13 @@ jobs:
         run: |
           go tool cover -func=coverage.out
 
-      - name: Enforce minimum coverage (80%)
-        run: |
-          TOTAL_COVERAGE=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $3); print $3}')
-          echo "Total coverage: ${TOTAL_COVERAGE}%"
+      - name: SonarQube Cloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
 
-          awk -v coverage="$TOTAL_COVERAGE" 'BEGIN { if (coverage + 0 < 80) exit 1 }'
+      - name: SonarQube Cloud Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
+        with:
+          pollingTimeoutSec: 600
 
   build:
     name: Build and Push Docker Image
