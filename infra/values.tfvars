@@ -43,6 +43,6 @@ authorization_name = "CognitoAuthorizer"
 # =======================================================
 lambda_environment_variables = {}
 
-lambda_bucket_name           = "fiap-tc-lambda-functions"
+lambda_bucket_name           = "fiap-hackathon-lambda-content-44573"
 chunk_upload_notifier_s3_key = "chunk-upload-notifier.zip"
 dynamodb_table_name          = "videos-05"
