@@ -41,6 +41,8 @@ func (h *VideoHandler) CreateVideo(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
+		c.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create video solicitation"})
 		return
 	}
