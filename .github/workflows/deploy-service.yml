@@ -2,10 +2,10 @@ name: Deploy Application
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'infra/**'
-      - '**'
+      - "infra/**"
+      - "**"
 
   workflow_dispatch:
 
@@ -15,8 +15,61 @@ permissions:
   packages: write
 
 jobs:
+  SonarScan:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    env:
+      SONAR_PROJECT_KEY: "FIAP-11soat-grupo-21_hackathon-auth-microservice"
+      SONAR_ORGANIZATION: "fiap-11soat-grupo-21"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: Clean workspace
+        run: |
+          rm -rf .scannerwork || true
+          go clean -testcache
+
+      - name: Run tests with coverage
+        working-directory: internal
+        env:
+          GO_ENV: test
+        run: |
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Display coverage report
+        working-directory: internal
+        run: |
+          echo "Coverage file size:"
+          ls -lh coverage.out || echo "Coverage file not found!"
+          echo "Coverage summary:"
+          go tool cover -func=coverage.out | tail -1 || echo "Could not display coverage summary"
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.verbose=true
+            -Dsonar.go.coverage.reportPaths=internal/coverage.out
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.coverage.exclusions="**/*_test.go,**/*_mock.go,**/mocks/**"
+
   build:
     name: Build and Push Docker Image
+    needs: SonarScan
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.set-image.outputs.image }}
@@ -73,6 +126,7 @@ jobs:
   terraform-apply:
     needs: build
     name: Deploy - Terraform Apply
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -98,7 +152,7 @@ jobs:
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v5.1.0
         with:
-          role-to-assume:  ${{ env.AWS_ROLE_ARN }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ env.AWS_REGION }}
 
@@ -110,13 +164,13 @@ jobs:
       - name: Terraform Init
         working-directory: infra
         run: |
-          terraform init 
+          terraform init
 
       - name: Terraform Apply
         working-directory: infra
         run: |
           terraform plan -var-file=values.tfvars
-          
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "This is a workflow_dispatch event. Performing a terraform plan first."
             terraform apply -var-file=values.tfvars -auto-approve
