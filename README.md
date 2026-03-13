@@ -131,26 +131,6 @@ classDiagram
 - **GET** `/v1/videos/user/{user_id}`
 - Não passa nada no body, só o `user_id` na URL.
 
-### Atualizar status do vídeo
-- **PATCH** `/v1/videos/{video_id}/status`
-- **Body (JSON):**
-```json
-{
-  "status": "COMPLETED",
-  "download_url": "https://meuarquivo.com/video.mp4",
-  "error_cause": "teste"
-}
-```
-
-### Atualizar status de um chunk
-- **PATCH** `/v1/videos/{video_id}/chunks/{part_number}/status`
-- **Body (JSON):**
-```json
-{
-  "status": "PROCESSING"
-}
-```
-
 ## Requisitos e validações
 - Formato de vídeos suportados: MP4
 - Tamanho máximo permitido por vídeo: 10 GB
