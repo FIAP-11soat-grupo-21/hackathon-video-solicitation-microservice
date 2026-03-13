@@ -1,8 +1,8 @@
 resource "aws_dynamodb_table" "videos" {
-  name           = "videos"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "user_id"
-  range_key      = "video_id"
+  name         = "videos"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
+  range_key    = "video_id"
 
   attribute {
     name = "user_id"
@@ -36,10 +36,10 @@ resource "aws_dynamodb_table" "videos" {
 }
 
 resource "aws_dynamodb_table" "chunks" {
-  name           = "chunks"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "video_id"
-  range_key      = "part_number"
+  name         = "chunks"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "video_id"
+  range_key    = "part_number"
 
   attribute {
     name = "video_id"
